@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nano Series - CBA Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .input-yellow { @apply bg-yellow-50 border-yellow-300 focus:border-yellow-500 focus:ring-yellow-500; }
+        .card { @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-6; }
+        .metric-label { @apply text-sm font-medium text-gray-500 uppercase tracking-wider; }
+        .metric-value { @apply text-3xl font-bold mt-1; }
+        select, .custom-input { @apply bg-slate-100 border-none rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer hover:bg-slate-200 transition-colors; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; margin: 0; }
+            .card { border: 1px solid #e2e8f0; box-shadow: none !important; break-inside: avoid; margin-bottom: 1rem; }
+            .input-yellow { background-color: transparent !important; border: none !important; padding: 0 !important; font-weight: bold; }
+            .max-w-7xl { max-width: 100%; width: 100%; }
+            #mainGrid { display: block !important; }
+            .sidebar { width: 100% !important; margin-bottom: 2rem; }
+            .content { width: 100% !important; }
+            .chart-container { height: 400px !important; width: 100% !important; }
+        }
+
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2563eb; }
+        input:checked + .slider:before { transform: translateX(20px); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+            <div>
+                <h1 class="text-4xl font-extrabold text-slate-900"><span id="productTitle">Nano 10000</span> <span class="text-blue-600">CBA</span></h1>
+                <p id="productSubtitle" class="text-slate-500 text-lg">Ship Fuel Combustion Catalyst Analysis</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-4 justify-center items-end no-print">
+                <button onclick="window.print()" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center gap-2">
+                    Save PDF
+                </button>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Product</label>
+                    <select id="productToggle" onchange="handleProductChange()">
+                        <option value="10000">Nano 10000</option>
+                        <option value="4000">Nano 4000</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Currency</label>
+                    <div class="flex gap-2">
+                        <select id="currencyToggle" onchange="handleCurrencyChange()">
+                            <option value="USD" selected>USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
+                            <option value="CUSTOM">Other...</option>
+                        </select>
+                        <input type="text" id="customCurrency" placeholder="Symbol" class="hidden custom-input w-20 text-center uppercase" oninput="updateAll()">
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1 items-center">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Show Profit</label>
+                    <label class="switch">
+                        <input type="checkbox" id="profitVisibilityToggle" checked onchange="toggleProfitVisibility()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div id="mainGrid" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="sidebar lg:col-span-4 space-y-6">
+                <div class="card bg-white border-t-4 border-t-yellow-400">
+                    <h2 class="text-lg font-bold mb-6">Variables</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Total Annual Fuel (Litres)</label>
+                            <input type="number" id="fuelUsed" value="15000000" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Ratio (1:X)</label>
+                                <input type="number" id="ratio" value="10000" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1 cur-label">Fuel Price</label>
+                                <input type="number" step="0.01" id="fuelCost" value="0.60" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1 cur-label">Buy Price</label>
+                                <input type="number" id="buyPrice" value="4000" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1 cur-label">Sell Price</label>
+                                <input type="number" id="sellPrice" value="25000" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Fuel Saving %</label>
+                            <input type="number" step="0.1" id="fuelSavingPct" value="8" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 cur-label">Maint. Saving</label>
+                            <input type="number" id="maintSaving" value="500000" oninput="updateAll()" class="w-full px-4 py-2 rounded-lg border input-yellow outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content lg:col-span-8 space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="card bg-green-50 border-green-100">
+                        <span class="metric-label text-green-600">Net Benefit</span>
+                        <div class="metric-value text-green-700" id="netBenefit">0</div>
+                    </div>
+                    <div class="card">
+                        <span class="metric-label">Drums (200L)</span>
+                        <div class="metric-value text-slate-800" id="drumsNeeded">0</div>
+                    </div>
+                    <div class="card bg-red-50 border-red-100">
+                        <span class="metric-label text-red-600">Break-Even %</span>
+                        <div class="metric-value text-red-700" id="breakEven">0%</div>
+                    </div>
+                </div>
+
+                <div id="analysisGrid" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="card">
+                        <h3 class="text-lg font-bold mb-4 border-b pb-2">Customer Analysis</h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between"><span>Gross Fuel Savings</span><span class="text-green-600 font-bold" id="grossFuelSaving">0</span></div>
+                            <div class="flex justify-between"><span>Maint. Savings</span><span class="text-green-600 font-bold" id="maintSavingVal">0</span></div>
+                            <div class="flex justify-between border-b pb-2"><span>Product Cost</span><span class="text-red-600 font-bold" id="consumerCost">0</span></div>
+                            <div class="flex justify-between pt-2 text-xl font-bold text-blue-600"><span>TOTAL BENEFIT</span><span id="totalNetBenefitVal">0</span></div>
+                        </div>
+                    </div>
+                    <div id="distributorCard" class="card border-l-4 border-l-blue-600">
+                        <h3 class="text-lg font-bold mb-4 border-b pb-2">Distributor Profit</h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between"><span>Unit Margin</span><span id="profitPerDrum">0</span></div>
+                            <div class="flex justify-between border-b pb-2"><span>Volume (Drums)</span><span id="drumsVolume">0</span></div>
+                            <div class="flex justify-between pt-2 text-xl font-bold text-slate-900"><span>TOTAL PROFIT</span><span id="totalDistProfit">0</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card chart-container">
+                    <h3 class="text-lg font-bold mb-4 border-b pb-2">Financial Projection</h3>
+                    <div style="height: 300px; width: 100%;">
+                        <canvas id="cbaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+        const productBaselines = { 
+            "10000": { ratio: 10000, buy: 4000, sell: 25000, saving: 8, sub: "Ship Fuel Combustion Catalyst Analysis" }, 
+            "4000": { ratio: 4000, buy: 1800, sell: 12000, saving: 5, sub: "Nano Fuel Conditioner Analysis" } 
+        };
+        const staticSymbols = { USD: '$', EUR: '€', GBP: '£' };
+
+        function getCurrencySymbol() {
+            const mode = document.getElementById('currencyToggle').value;
+            return mode === 'CUSTOM' ? (document.getElementById('customCurrency').value || 'CUR') : staticSymbols[mode];
+        }
+
+        function formatVal(num) {
+            return getCurrencySymbol() + " " + new Intl.NumberFormat('en-US').format(Math.round(num));
+        }
+
+        function toggleProfitVisibility() {
+            const isVisible = document.getElementById('profitVisibilityToggle').checked;
+            document.getElementById('distributorCard').classList.toggle('hidden', !isVisible);
+            document.getElementById('analysisGrid').classList.toggle('md:grid-cols-2', isVisible);
+        }
+
+        function handleCurrencyChange() {
+            document.getElementById('customCurrency').classList.toggle('hidden', document.getElementById('currencyToggle').value !== 'CUSTOM');
+            updateAll();
+        }
+
+        function handleProductChange() {
+            const prod = document.getElementById('productToggle').value;
+            const data = productBaselines[prod];
+            document.getElementById('productTitle').innerText = "Nano " + prod;
+            document.getElementById('productSubtitle').innerText = data.sub;
+            document.getElementById('ratio').value = data.ratio;
+            document.getElementById('buyPrice').value = data.buy;
+            document.getElementById('sellPrice').value = data.sell;
+            document.getElementById('fuelSavingPct').value = data.saving;
+            updateAll();
+        }
+
+        function updateAll() {
+            const symbol = getCurrencySymbol();
+            document.querySelectorAll('.cur-label').forEach(el => el.innerText = el.innerText.split('(')[0].trim() + ` (${symbol})`);
+            
+            const fuelUsed = parseFloat(document.getElementById('fuelUsed').value) || 0;
+            const ratio = parseFloat(document.getElementById('ratio').value) || 0;
+            const fuelCost = parseFloat(document.getElementById('fuelCost').value) || 0;
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value) || 0;
+            const sellPrice = parseFloat(document.getElementById('sellPrice').value) || 0;
+            const fuelSavingPct = (parseFloat(document.getElementById('fuelSavingPct').value) || 0) / 100;
+            const maintSaving = parseFloat(document.getElementById('maintSaving').value) || 0;
+
+            const drumsNeeded = fuelUsed / ratio / 200;
+            const consumerCost = drumsNeeded * sellPrice;
+            const grossFuelSaving = (fuelUsed * fuelSavingPct) * fuelCost;
+            const totalNet = (grossFuelSaving - consumerCost) + maintSaving;
+            const breakEven = ((sellPrice / ratio / 200) / fuelCost) * 100;
+
+            document.getElementById('netBenefit').innerText = formatVal(totalNet);
+            document.getElementById('drumsNeeded').innerText = drumsNeeded.toFixed(1);
+            document.getElementById('breakEven').innerText = breakEven.toFixed(2) + '%';
+            document.getElementById('grossFuelSaving').innerText = formatVal(grossFuelSaving);
+            document.getElementById('maintSavingVal').innerText = formatVal(maintSaving);
+            document.getElementById('consumerCost').innerText = `(${formatVal(consumerCost)})`;
+            document.getElementById('totalNetBenefitVal').innerText = formatVal(totalNet);
+            document.getElementById('profitPerDrum').innerText = formatVal(sellPrice - buyPrice);
+            document.getElementById('drumsVolume').innerText = drumsNeeded.toFixed(1);
+            document.getElementById('totalDistProfit').innerText = formatVal(drumsNeeded * (sellPrice - buyPrice));
+            
+            renderChart(consumerCost, grossFuelSaving + maintSaving);
+        }
+
+        function renderChart(cost, savings) {
+            const ctx = document.getElementById('cbaChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: { 
+                    labels: ['Investment', 'Gross Returns'], 
+                    datasets: [{ 
+                        data: [cost, savings], 
+                        backgroundColor: ['#f87171', '#4ade80'], 
+                        borderRadius: 8, 
+                        barThickness: 50 
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    devicePixelRatio: 2,
+                    animation: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { callback: v => getCurrencySymbol() + " " + v.toLocaleString() } 
+                        } 
+                    } 
+                }
+            });
+        }
+        window.onload = updateAll;
+    </script>
+</body>
+</html>
